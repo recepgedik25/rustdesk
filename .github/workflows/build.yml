@@ -26,20 +26,24 @@ jobs:
           choco install llvm -y
           vcpkg integrate install
           vcpkg install libvpx:x64-windows-static libyuv:x64-windows-static opus:x64-windows-static aom:x64-windows-static --classic
-          # Rust köprü oluşturucu aracını kuruyoruz
           cargo install flutter_rust_bridge_codegen --version 1.80.1
 
       - name: Build Saynet Help Desk EXE
         shell: pwsh
         run: |
           $env:VCPKG_ROOT = "C:/vcpkg"
-          # vcpkg.json'ı her ihtimale karşı devre dışı bırak
+          # vcpkg.json çakışmasını engelle
           Get-ChildItem -Filter "vcpkg.json" -Recurse | Rename-Item -NewName { $_.Name + ".old" } -ErrorAction SilentlyContinue
           
-          # 1. Köprü dosyalarını oluştur (Hata buradaydı)
-          flutter_rust_bridge_codegen --rust-input src/flutter_ffi.rs --rust-output src/bridge_generated.rs --dart-output flutter/lib/generated_bridge.dart
+          # 1. Flutter bağımlılıklarını çek (Köprü için şart)
+          cd flutter
+          flutter pub get
+          cd ..
           
-          # 2. Derlemeyi başlat
+          # 2. Köprü dosyalarını doğru parametrelerle yeniden oluştur
+          flutter_rust_bridge_codegen --rust-input src/flutter_ffi.rs --rust-output src/bridge_generated.rs --dart-output flutter/lib/generated_bridge.dart --wasm
+          
+          # 3. Derlemeyi başlat
           python build.py --flutter
 
       - name: Upload Finished EXE
