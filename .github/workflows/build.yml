@@ -1,0 +1,46 @@
+name: Saynet Help Desk Build
+
+on: workflow_dispatch
+
+jobs:
+  build:
+    runs-on: windows-2022
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: 'recursive' # Boş klasörleri orijinal kaynaktan doldurur
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.24.x'
+          channel: 'stable'
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install LLVM & vcpkg Libraries
+        run: |
+          choco install llvm -y
+          vcpkg integrate install
+          # RustDesk'in ihtiyaç duyduğu tüm statik kütüphaneleri kuruyoruz
+          vcpkg install libvpx:x64-windows-static libyuv:x64-windows-static opus:x64-windows-static aom:x64-windows-static
+
+      - name: Build Saynet Help Desk EXE
+        shell: pwsh
+        run: |
+          $env:VCPKG_ROOT = "C:/vcpkg"
+          # Yereldeki vcpkg.json çakışmasını önlemek için dosyayı devre dışı bırakıyoruz
+          if (Test-Path "vcpkg.json") { Rename-Item "vcpkg.json" "vcpkg.json.old" }
+          if (Test-Path "vcpkg-yedek.json.old") { Write-Host "Manifest dosyası zaten devre dışı." }
+          
+          # Derleme komutu
+          python build.py --flutter
+
+      - name: Upload Finished EXE
+        uses: actions/upload-artifact@v4
+        with:
+          name: Saynet-Help-Desk-Windows-EXE
+          path: target/release/*.exe
