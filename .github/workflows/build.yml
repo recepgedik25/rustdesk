@@ -35,12 +35,12 @@ jobs:
           # vcpkg.json çakışmasını engelle
           Get-ChildItem -Filter "vcpkg.json" -Recurse | Rename-Item -NewName { $_.Name + ".old" } -ErrorAction SilentlyContinue
           
-          # 1. Flutter bağımlılıklarını çek (Köprü için şart)
+          # 1. Flutter bağımlılıklarını çek
           cd flutter
           flutter pub get
           cd ..
           
-          # 2. Köprü dosyalarını doğru parametrelerle yeniden oluştur
+          # 2. Köprü dosyalarını oluştur
           flutter_rust_bridge_codegen --rust-input src/flutter_ffi.rs --rust-output src/bridge_generated.rs --dart-output flutter/lib/generated_bridge.dart --wasm
           
           # 3. Derlemeyi başlat
@@ -50,4 +50,10 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: Saynet-Help-Desk-Windows-EXE
-          path: target/release/*.exe
+          # EXE dosyasını bulmak için tüm olası yolları tarıyoruz
+          path: |
+            target/release/rustdesk.exe
+            target/release/SaynetHelpDesk.exe
+            flutter/build/windows/runner/Release/*.exe
+            dist/*.exe
+          if-no-files-found: error
