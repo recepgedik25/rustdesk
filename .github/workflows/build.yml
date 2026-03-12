@@ -32,28 +32,23 @@ jobs:
         shell: pwsh
         run: |
           $env:VCPKG_ROOT = "C:/vcpkg"
-          # vcpkg.json çakışmasını engelle
           Get-ChildItem -Filter "vcpkg.json" -Recurse | Rename-Item -NewName { $_.Name + ".old" } -ErrorAction SilentlyContinue
-          
-          # 1. Flutter bağımlılıklarını çek
           cd flutter
           flutter pub get
           cd ..
-          
-          # 2. Köprü dosyalarını oluştur
           flutter_rust_bridge_codegen --rust-input src/flutter_ffi.rs --rust-output src/bridge_generated.rs --dart-output flutter/lib/generated_bridge.dart --wasm
           
-          # 3. Derlemeyi başlat
+          # Derlemeyi başlat
           python build.py --flutter
+          
+          # EXE'NİN YERİNİ BULMAK İÇİN LİSTELEME (LOGLARDA GÖRECEĞİZ)
+          Write-Host "--- Oluşan tüm EXE dosyaları aranıyor ---"
+          Get-ChildItem -Path . -Filter *.exe -Recurse
 
       - name: Upload Finished EXE
         uses: actions/upload-artifact@v4
         with:
           name: Saynet-Help-Desk-Windows-EXE
-          # EXE dosyasını bulmak için tüm olası yolları tarıyoruz
-          path: |
-            target/release/rustdesk.exe
-            target/release/SaynetHelpDesk.exe
-            flutter/build/windows/runner/Release/*.exe
-            dist/*.exe
+          # Sunucunun tüm kök dizinini tara ve bulduğun her şeyi paketle
+          path: "**/*.exe"
           if-no-files-found: error
