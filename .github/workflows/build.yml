@@ -32,16 +32,21 @@ jobs:
         shell: pwsh
         run: |
           $env:VCPKG_ROOT = "C:/vcpkg"
+          # vcpkg.json çakışmasını engelle
           Get-ChildItem -Filter "vcpkg.json" -Recurse | Rename-Item -NewName { $_.Name + ".old" } -ErrorAction SilentlyContinue
+          
+          # 1. Flutter bağımlılıklarını çek
           cd flutter
           flutter pub get
           cd ..
-          flutter_rust_bridge_codegen --rust-input src/flutter_ffi.rs --rust-output src/bridge_generated.rs --dart-output flutter/lib/generated_bridge.dart --wasm
           
-          # Derlemeyi başlat
+          # 2. Köprü dosyalarını oluştur (CRITICAL: Class-name Rustdesk olarak sabitlendi)
+          flutter_rust_bridge_codegen --rust-input src/flutter_ffi.rs --rust-output src/bridge_generated.rs --dart-output flutter/lib/generated_bridge.dart --class-name Rustdesk --wasm
+          
+          # 3. Derlemeyi başlat
           python build.py --flutter
           
-          # EXE'NİN YERİNİ BULMAK İÇİN LİSTELEME (LOGLARDA GÖRECEĞİZ)
+          # EXE'NİN YERİNİ BULMAK İÇİN LİSTELEME
           Write-Host "--- Oluşan tüm EXE dosyaları aranıyor ---"
           Get-ChildItem -Path . -Filter *.exe -Recurse
 
@@ -49,6 +54,10 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: Saynet-Help-Desk-Windows-EXE
-          # Sunucunun tüm kök dizinini tara ve bulduğun her şeyi paketle
-          path: "**/*.exe"
+          # Oluşan ana kurulum dosyasını ve taşınabilir sürümü yakala
+          path: |
+             rustdesk-*-install.exe
+             saynet-*-install.exe
+             flutter/build/windows/runner/Release/*.exe
+             dist/*.exe
           if-no-files-found: error
