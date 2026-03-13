@@ -33,27 +33,32 @@ jobs:
         run: |
           $env:VCPKG_ROOT = "C:/vcpkg"
           Get-ChildItem -Filter "vcpkg.json" -Recurse | Rename-Item -NewName { $_.Name + ".old" } -ErrorAction SilentlyContinue
+          
           cd flutter
           flutter pub get
           cd ..
           
-          # Köprü dosyalarını oluştur
+          # Köprü ayarı
           flutter_rust_bridge_codegen --rust-input src/flutter_ffi.rs --rust-output src/bridge_generated.rs --dart-output flutter/lib/generated_bridge.dart --class-name Rustdesk --wasm
           
-          # Derlemeyi başlat
-          python build.py --flutter
+          # ÖNEMLİ: Uygulama ismini ve Sunucu ayarlarını derleme anında gömüyoruz
+          # NOT: "SUNUCU_ADRESIN" ve "KEY_BILGIN" kısımlarını kendi bilgilerinle değiştirebilirsin
+          python build.py --flutter --app-name "Saynet Help Desk" --server "SUNUCU_ADRESIN" --key "KEY_BILGIN"
           
-          # EXE dosyasını bul ve ana dizine taşı (Garantilemek için)
-          Write-Host "--- EXE dosyasını topluyorum ---"
+          # Çıktıları topla
+          Write-Host "--- Kurulum dosyaları hazırlanıyor ---"
+          mkdir output_folder
           Get-ChildItem -Path . -Filter *.exe -Recurse | ForEach-Object {
-              Write-Host "Bulunan Dosya: $($_.FullName)"
-              Copy-Item $_.FullName -Destination "./SAYNET_OUTPUT.exe" -ErrorAction SilentlyContinue
+              if ($_.Name -like "*install*") {
+                  Copy-Item $_.FullName -Destination "./output_folder/Saynet_Kurulum.exe"
+              } else {
+                  Copy-Object $_.FullName -Destination "./output_folder/$($_.Name)"
+              }
           }
 
       - name: Upload Finished EXE
         uses: actions/upload-artifact@v4
         with:
-          name: Saynet-Help-Desk-Final-EXE
-          # Sadece kopyaladığımız dosyayı alıyoruz
-          path: "SAYNET_OUTPUT.exe"
+          name: Saynet-Help-Desk-Full-Package
+          path: output_folder/
           if-no-files-found: error
