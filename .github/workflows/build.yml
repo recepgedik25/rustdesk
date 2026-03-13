@@ -32,32 +32,28 @@ jobs:
         shell: pwsh
         run: |
           $env:VCPKG_ROOT = "C:/vcpkg"
-          # vcpkg.json çakışmasını engelle
           Get-ChildItem -Filter "vcpkg.json" -Recurse | Rename-Item -NewName { $_.Name + ".old" } -ErrorAction SilentlyContinue
-          
-          # 1. Flutter bağımlılıklarını çek
           cd flutter
           flutter pub get
           cd ..
           
-          # 2. Köprü dosyalarını oluştur (CRITICAL: Class-name Rustdesk olarak sabitlendi)
+          # Köprü dosyalarını oluştur
           flutter_rust_bridge_codegen --rust-input src/flutter_ffi.rs --rust-output src/bridge_generated.rs --dart-output flutter/lib/generated_bridge.dart --class-name Rustdesk --wasm
           
-          # 3. Derlemeyi başlat
+          # Derlemeyi başlat
           python build.py --flutter
           
-          # EXE'NİN YERİNİ BULMAK İÇİN LİSTELEME
-          Write-Host "--- Oluşan tüm EXE dosyaları aranıyor ---"
-          Get-ChildItem -Path . -Filter *.exe -Recurse
+          # EXE dosyasını bul ve ana dizine taşı (Garantilemek için)
+          Write-Host "--- EXE dosyasını topluyorum ---"
+          Get-ChildItem -Path . -Filter *.exe -Recurse | ForEach-Object {
+              Write-Host "Bulunan Dosya: $($_.FullName)"
+              Copy-Item $_.FullName -Destination "./SAYNET_OUTPUT.exe" -ErrorAction SilentlyContinue
+          }
 
       - name: Upload Finished EXE
         uses: actions/upload-artifact@v4
         with:
-          name: Saynet-Help-Desk-Windows-EXE
-          # Oluşan ana kurulum dosyasını ve taşınabilir sürümü yakala
-          path: |
-             rustdesk-*-install.exe
-             saynet-*-install.exe
-             flutter/build/windows/runner/Release/*.exe
-             dist/*.exe
+          name: Saynet-Help-Desk-Final-EXE
+          # Sadece kopyaladığımız dosyayı alıyoruz
+          path: "SAYNET_OUTPUT.exe"
           if-no-files-found: error
