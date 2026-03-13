@@ -32,33 +32,38 @@ jobs:
         shell: pwsh
         run: |
           $env:VCPKG_ROOT = "C:/vcpkg"
+          # vcpkg.json çakışmalarını önlemek için geçici isim değişikliği
           Get-ChildItem -Filter "vcpkg.json" -Recurse | Rename-Item -NewName { $_.Name + ".old" } -ErrorAction SilentlyContinue
           
+          # 1. Flutter hazırlığı
           cd flutter
           flutter pub get
           cd ..
           
-          # Köprü ayarı
+          # 2. Köprü (Bridge) dosyalarını oluşturma
+          # Class name'i Rustdesk yaparak Flutter tarafındaki "Not Found" hatalarını engelliyoruz
           flutter_rust_bridge_codegen --rust-input src/flutter_ffi.rs --rust-output src/bridge_generated.rs --dart-output flutter/lib/generated_bridge.dart --class-name Rustdesk --wasm
           
-          # ÖNEMLİ: Uygulama ismini ve Sunucu ayarlarını derleme anında gömüyoruz
-          # NOT: "SUNUCU_ADRESIN" ve "KEY_BILGIN" kısımlarını kendi bilgilerinle değiştirebilirsin
-          python build.py --flutter --app-name "Saynet Help Desk" --server "SUNUCU_ADRESIN" --key "KEY_BILGIN"
+          # 3. Derlemeyi başlat (Python'un tanımadığı hatalı parametreleri kaldırdık)
+          python build.py --flutter
           
-          # Çıktıları topla
-          Write-Host "--- Kurulum dosyaları hazırlanıyor ---"
-          mkdir output_folder
+          # 4. Çıktıları organize etme
+          Write-Host "--- Çıktı Klasörü Hazırlanıyor ---"
+          New-Item -ItemType Directory -Force -Path "./output_folder"
+          
+          # Oluşan EXE'leri tarayıp anlaşılır isimlerle kopyalıyoruz
           Get-ChildItem -Path . -Filter *.exe -Recurse | ForEach-Object {
-              if ($_.Name -like "*install*") {
-                  Copy-Item $_.FullName -Destination "./output_folder/Saynet_Kurulum.exe"
-              } else {
-                  Copy-Object $_.FullName -Destination "./output_folder/$($_.Name)"
+              Write-Host "Dosya Bulundu: $($_.FullName)"
+              if ($_.FullName -like "*install*") {
+                  Copy-Item $_.FullName -Destination "./output_folder/Saynet_Destek_Kurulum.exe" -Force
+              } elseif ($_.FullName -like "*release*" -and $_.Name -notlike "*build_script*") {
+                  Copy-Item $_.FullName -Destination "./output_folder/Saynet_Destek_Tasınabilir.exe" -Force
               }
           }
 
       - name: Upload Finished EXE
         uses: actions/upload-artifact@v4
         with:
-          name: Saynet-Help-Desk-Full-Package
+          name: Saynet-Help-Desk-Final-Files
           path: output_folder/
           if-no-files-found: error
